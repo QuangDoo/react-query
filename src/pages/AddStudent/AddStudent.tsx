@@ -1,7 +1,8 @@
-import { useMutation } from '@tanstack/react-query';
-import { addStudent } from 'apis';
-import { ChangeEvent, FormEvent, useMemo, useState } from 'react';
-import { useMatch } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { addStudent, getStudent, updateStudent } from 'apis';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { useMatch, useParams } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { isAxiosError } from 'utils/isAxiosError';
 
 type FormState = Omit<Student, 'id'>;
@@ -20,9 +21,26 @@ const initalState: FormState = {
 };
 export default function AddStudent() {
   const [formState, setFormState] = useState<FormState>(initalState);
+
   const addMatch = Boolean(useMatch('/students/add'));
 
-  const { mutate, data, error, reset } = useMutation({
+  const { id } = useParams();
+
+  const queryClient = useQueryClient();
+
+  const { data: studentData } = useQuery({
+    queryKey: ['student', id],
+    queryFn: () => getStudent(Number(id)),
+    enabled: id !== undefined,
+    staleTime: 1000 * 10
+  });
+
+  const {
+    mutate: mutateAddingStudent,
+    data,
+    error: addStudentError,
+    reset
+  } = useMutation({
     mutationFn: (params: FormState) => {
       return addStudent(params);
     },
@@ -31,30 +49,61 @@ export default function AddStudent() {
     }
   });
 
+  const {
+    mutate: mutateUpdatingStudent,
+    data: updateStudentData,
+    error: updateStudentError,
+    reset: resetUpdateing
+  } = useMutation({
+    mutationFn: (params: FormState) => {
+      return updateStudent({ ...params, id: Number(id) });
+    },
+    onSuccess: () => {
+      toast.success('Update thành công!');
+      // Update data query through setQueryData method from queryClient
+      queryClient.setQueryData(['student', id], data);
+    }
+  });
+
   const errorForm = useMemo(() => {
+    const error = addMatch ? addStudentError : updateStudentError;
     if (
       isAxiosError<{ error: FormError }>(error) &&
       error.response?.status === 422
     ) {
       return error.response?.data?.error;
     }
+
     return null;
-  }, [error]);
+  }, [addStudentError, updateStudentError, addMatch]);
+
+  useEffect(() => {
+    if (studentData?.data && id) {
+      studentData?.data && setFormState(studentData?.data);
+    }
+  }, [id, studentData?.data]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setFormState((prevState) => {
       return { ...prevState, [e.target.name]: e.target.value };
     });
 
-    if (data || error) {
+    if (data || addStudentError || updateStudentError || updateStudentData) {
       reset();
     }
   };
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (addMatch) {
+      mutateAddingStudent(formState);
+    } else {
+      mutateUpdatingStudent(formState);
+    }
+  };
 
-    mutate(formState);
+  const handleCancelEdit = () => {
+    setFormState(initalState);
   };
 
   return (
@@ -94,8 +143,8 @@ export default function AddStudent() {
                   type='radio'
                   name='gender'
                   className='h-4 w-4 border-gray-300 bg-gray-100 text-blue-600 focus:ring-2 focus:ring-blue-500  '
-                  value='male'
-                  checked={formState.gender === 'male'}
+                  value='Male'
+                  checked={formState.gender === 'Male'}
                   onChange={handleChange}
                 />
                 <label
@@ -111,8 +160,8 @@ export default function AddStudent() {
                   type='radio'
                   name='gender'
                   className='h-4 w-4 border-gray-300 bg-gray-100 text-blue-600 focus:ring-2 focus:ring-blue-500'
-                  value='female'
-                  checked={formState.gender === 'female'}
+                  value='Female'
+                  checked={formState.gender === 'Female'}
                   onChange={handleChange}
                 />
                 <label
@@ -128,8 +177,8 @@ export default function AddStudent() {
                   type='radio'
                   name='gender'
                   className='h-4 w-4 border-gray-300 bg-gray-100 text-blue-600 focus:ring-2 focus:ring-blue-500'
-                  value='other'
-                  checked={formState.gender === 'other'}
+                  value='Other'
+                  checked={formState.gender === 'Other'}
                   onChange={handleChange}
                 />
                 <label
@@ -249,8 +298,17 @@ export default function AddStudent() {
           type='submit'
           className='w-full rounded-lg bg-blue-700 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 sm:w-auto'
         >
-          Submit
+          {addMatch ? 'Submit' : 'Edit'}
         </button>
+
+        {/* {!addMatch && formState && (
+          <button
+            onClick={handleCancelEdit}
+            className='w-full rounded-lg bg-red-400 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-red-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800 sm:w-auto'
+          >
+            Cancel
+          </button>
+        )} */}
       </form>
     </div>
   );
