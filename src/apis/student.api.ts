@@ -16,7 +16,28 @@ export const getStudents = async (
   return data;
 };
 
+export const getStudent = async (id?: number) => {
+  if (!id) return;
+
+  const data = await http.get<Student>(`students/${id}`);
+
+  return data;
+};
+
 export const addStudent = async (student: Omit<Student, 'id'>) => {
-  const data = await http.post<Student>('students', { ...student });
+  const data = await http.post<Student>('students', student);
+
+  return data;
+};
+
+export const updateStudent = async (student: Student) => {
+  const data = await http.put<Student>(`students/${student.id}`, student);
+
+  return data;
+};
+
+export const deleteStudent = async (id: number) => {
+  const data = await http.delete(`students/${id}`);
+
   return data;
 };
