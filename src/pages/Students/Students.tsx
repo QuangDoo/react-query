@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { deleteStudent, getStudent, getStudents } from 'apis';
 import { useSearchParamsQuery } from 'hooks';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 
 const LIMIT = 10;
@@ -10,6 +10,7 @@ export default function Students() {
   const searchQuery = useSearchParamsQuery<Record<'page', number>>();
   const page = useMemo(() => Number(searchQuery.page), [searchQuery.page]);
   const queryClient = useQueryClient();
+  const [percentage, setPercentage] = useState<number>(0);
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['studentsData', page],
@@ -32,6 +33,22 @@ export default function Students() {
     }
   });
 
+  useEffect(() => {
+    const percetentInterval = setTimeout(() => {
+      if (percentage >= 100 && isLoading) {
+        clearTimeout(percetentInterval);
+        setPercentage(0);
+      } else {
+        if (!isLoading) {
+          setPercentage(100);
+          clearTimeout(percetentInterval);
+        } else if (percentage < 99) {
+          setPercentage((prevState) => prevState + 33);
+        }
+      }
+    }, 1000);
+  }, [isLoading, percentage]);
+
   const pages = Math.ceil(Number(data?.headers['x-total-count']) / LIMIT);
 
   const handleDelete = (id: number) => () => {
@@ -48,6 +65,15 @@ export default function Students() {
 
   return (
     <div>
+      {percentage !== 100 && (
+        <div className='h-2.5 w-full rounded-full bg-gray-200 dark:bg-gray-700'>
+          <div
+            className='h-2.5 rounded-full bg-blue-600'
+            style={{ width: `${percentage}%` }}
+          ></div>
+        </div>
+      )}
+
       <h1 className='text-lg'>Students</h1>
 
       <div className='mt-2'>
